@@ -61,9 +61,12 @@ async def send(token, url, data):
     try:
         async with aiohttp.ClientSession() as s:
             async with s.post(url, data=bytes.fromhex(data), headers=headers) as r:
-                return await r.text()
+                if r.status == 200:
+                    return await r.text()
+                else:
+                    return None
     except Exception as e:
-        print(f"[Token Error] {e}")
+        print(f"[❌ Token Error] {e}")
         return None
 
 # =========================
@@ -72,24 +75,32 @@ async def send(token, url, data):
 async def multi(uid, server, url):
     enc = encrypt_message(create_like(uid, server))
     tokens = load_tokens(server)
-    total = len(tokens)
     batch_size = 105  # প্রতি ব্যাচে 105 টোকেন ইউজ হবে
+    total = len(tokens)
     results = []
 
-    print(f"[+] Total tokens loaded: {total}")
-    print(f"[+] Sending likes in batches of {batch_size}...")
+    print(f"\n[🔥] Total tokens loaded: {total}")
+    print(f"[⚙️] Sending likes in batches of {batch_size} tokens...\n")
 
+    batch_number = 1
+
+    # সব টোকেন ব্যাচ আকারে পাঠানো
     for i in range(0, total, batch_size):
         batch = tokens[i:i + batch_size]
-        print(f"[Batch] Using tokens {i+1} → {i+len(batch)}")
+        print(f"[📦 Batch {batch_number}] Tokens {i+1} → {i+len(batch)}")
         try:
-            res = await asyncio.gather(*[send(t['token'], url, enc) for t in batch])
+            res = await asyncio.gather(*[
+                send(t['token'], url, enc) for t in batch
+            ])
             results.extend(res)
+            print(f"[✅ Batch {batch_number}] Completed ({len(batch)} tokens used)")
         except Exception as e:
-            print(f"[Batch Error] {e}")
-        await asyncio.sleep(2)  # একটু delay
+            print(f"[⚠️ Batch {batch_number} Error] {e}")
 
-    print(f"[✓] All {total} tokens used successfully.")
+        batch_number += 1
+        await asyncio.sleep(1.5)  # প্রতি ব্যাচের মাঝে একটু বিরতি
+
+    print(f"\n[🎯] All {total} tokens used successfully!")
     return results
 
 # =========================
@@ -123,7 +134,7 @@ def like():
     enc = encrypt_message(create_uid(uid))
     before, tok = None, None
 
-    # Player Info (before like)
+    # 🔹 Player Info পাওয়া
     for t in tokens[:10]:
         before = get_info(enc, server, t["token"])
         if before:
@@ -134,14 +145,11 @@ def like():
 
     before_like = int(json.loads(MessageToJson(before)).get('AccountInfo', {}).get('Likes', 0))
 
-    # Send Likes (async loop fix)
+    # 🔹 সব টোকেন দিয়ে Like পাঠানো
     urls = URLS_LIKE
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(multi(uid, server, urls.get(server, "https://clientbp.ggblueshark.com/LikeProfile")))
-    loop.close()
+    asyncio.run(multi(uid, server, urls.get(server, "https://clientbp.ggblueshark.com/LikeProfile")))
 
-    # Player Info (after like)
+    # 🔹 পরে Player Info আবার পাওয়া
     after = json.loads(MessageToJson(get_info(enc, server, tok)))
     after_like = int(after.get('AccountInfo', {}).get('Likes', 0))
 
