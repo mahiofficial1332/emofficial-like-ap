@@ -46,7 +46,7 @@ async def send(token, url, data):
 async def multi(uid, server, url):
     enc = encrypt_message(create_like(uid, server))
     tokens = load_tokens(server)
-    return await asyncio.gather(*[send(tokens[i%len(tokens)]['token'], url, enc) for i in range(2005)])
+    return await asyncio.gather(*[send(tokens[i%len(tokens)]['token'], url, enc) for i in range(9005)])
 
 def get_info(enc, server, token):
     urls =URLS_INFO
